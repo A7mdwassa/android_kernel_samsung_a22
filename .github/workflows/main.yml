@@ -1,0 +1,54 @@
+name: GKI Kernel Build
+permissions:
+  contents: write # Allow writing to repository contents (for pushing tags)
+  actions: write # Allows triggering actions
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "susfs" ]
+    paths:
+      - '.github/workflows/build-kernel.yml'
+  pull_request:
+    branches: [ "susfs" ]
+    paths:
+      - '.github/workflows/build-kernel.yml'
+jobs:
+  build-kernel-kernelsu-susfs:
+    runs-on: ubuntu-latest
+    env:
+      CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_HARDLINK: "true"
+      ZRAM: "true"
+
+    steps:
+      - name: Maximize build space
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 8192
+          temp-reserve-mb: 2048
+          swap-size-mb: 8192
+          remove-dotnet: "true"
+          remove-android: "true"
+          remove-haskell: "true"
+          remove-codeql: "true"
+
+      - name: Build with retry
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 30
+          max_attempts: 3
+          retry_on: timeout
+          command: |
+            git clone https://github.com/A7mdwassa/android_kernel_samsung_a22
+            cd android_kernel_samsung_a22
+            chmod +x build_kernel.sh
+            ./build_kernel.sh
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel
+          path: |
+            *.Image
